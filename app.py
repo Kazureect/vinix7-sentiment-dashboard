@@ -110,7 +110,7 @@ if st.button("🚀 Mulai Analisis"):
         with col1:
             sentimen_count = df['Prediksi_Sentimen'].value_counts()
             fig1, ax1 = plt.subplots(figsize=(5, 5))
-            ax1.pie(sentimen_count, labels=sentimen_count.index, autopct='%1.1f%%', colors=['#ff9999','#66b3ff'], startangle=90, wedgeprops=dict(width=0.4))
+            ax1.pie(sentimen_count, labels=sentimen_count.index, autopct='%1.1f%%', colors=['#66b3ff','#ff9999'], startangle=90, wedgeprops=dict(width=0.4))
             ax1.set_title("Proporsi Sentimen")
             st.pyplot(fig1)
             
