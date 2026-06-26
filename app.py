@@ -78,62 +78,54 @@ if uploaded_file is not None:
     kolom_teks = st.selectbox("Pilih kolom yang berisi teks ulasan:", df.columns)
     
     if st.button("🚀 Mulai Analisis"):
-            # Tambahkan progress bar agar UI lebih interaktif
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+        with st.spinner("Sedang membersihkan teks dan melakukan prediksi... Mohon tunggu."):
             
-            status_text.text("Sedang membersihkan teks dan menghapus noise...")
+            # Preprocessing Cepat (Memoization)
             df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
-            progress_bar.progress(50)
+            semua_teks = ' '.join(df['teks_bersih'].astype(str))
+            kata_unik = set(semua_teks.split())
             
-            status_text.text("Melakukan stemming instan (Dictionary Lookup)...")
-            # Keajaiban terjadi di sini! Tidak pakai Sastrawi lagi, hanya mencocokkan kata
-            df['teks_stemmed'] = df['teks_bersih'].apply(
-                lambda x: ' '.join([kamus_offline.get(kata, kata) for kata in x.split()])
-            )
-            progress_bar.progress(80)
+            kamus_stemming = {kata: stemmer.stem(kata) for kata in kata_unik}
+            df['teks_stemmed'] = df['teks_bersih'].apply(lambda x: ' '.join([kamus_stemming.get(kata, kata) for kata in x.split()]))
             
-            status_text.text("Menebak sentimen pengguna...")
+            # Prediksi
             X_vektor = tfidf.transform(df['teks_stemmed'])
             df['Prediksi_Sentimen'] = model.predict(X_vektor)
             
-            progress_bar.progress(100)
-            status_text.text("Selesai dalam sekejap! 🎉")
-    
-            # ==========================================
-            # 5. VISUALISASI BUSINESS REPORTING
-            # ==========================================
-            st.divider()
-            st.subheader("📈 Hasil Analisis Sentimen")
+        # ==========================================
+        # 5. VISUALISASI BUSINESS REPORTING
+        # ==========================================
+        st.divider()
+        st.subheader("📈 Hasil Analisis Sentimen")
+        
+        col1, col2 = st.columns(2)
+        
+        # Donut Chart Sentimen Keseluruhan
+        with col1:
+            sentimen_count = df['Prediksi_Sentimen'].value_counts()
+            fig1, ax1 = plt.subplots(figsize=(5, 5))
+            ax1.pie(sentimen_count, labels=sentimen_count.index, autopct='%1.1f%%', colors=['#ff9999','#66b3ff'], startangle=90, wedgeprops=dict(width=0.4))
+            ax1.set_title("Proporsi Sentimen")
+            st.pyplot(fig1)
             
-            col1, col2 = st.columns(2)
-            
-            # Donut Chart Sentimen Keseluruhan
-            with col1:
-                sentimen_count = df['Prediksi_Sentimen'].value_counts()
-                fig1, ax1 = plt.subplots(figsize=(5, 5))
-                ax1.pie(sentimen_count, labels=sentimen_count.index, autopct='%1.1f%%', colors=['#ff9999','#66b3ff'], startangle=90, wedgeprops=dict(width=0.4))
-                ax1.set_title("Proporsi Sentimen")
-                st.pyplot(fig1)
+        # Bar Chart Fokus Keluhan Utama
+        with col2:
+            df_negatif = df[df['Prediksi_Sentimen'] == 'Negatif']
+            if not df_negatif.empty:
+                teks_negatif = ' '.join(df_negatif['teks_stemmed'].astype(str))
+                kata_abaikan = ['tidak', 'enggak', 'ga', 'gak', 'tdk', 'g', 'nggak', 'bukan', 'belum', 'jangan', 'kurang', 'tolong', 'mohon', 'bisa', 'kasih', 'bikin', 'buat', 'dapat', 'pakai', 'masuk', 'keluar']
+                kata_negatif_bersih = [kata for kata in teks_negatif.split() if kata not in kata_abaikan]
                 
-            # Bar Chart Fokus Keluhan Utama
-            with col2:
-                df_negatif = df[df['Prediksi_Sentimen'] == 'Negatif']
-                if not df_negatif.empty:
-                    teks_negatif = ' '.join(df_negatif['teks_stemmed'].astype(str))
-                    kata_abaikan = ['tidak', 'enggak', 'ga', 'gak', 'tdk', 'g', 'nggak', 'bukan', 'belum', 'jangan', 'kurang', 'tolong', 'mohon', 'bisa', 'kasih', 'bikin', 'buat', 'dapat', 'pakai', 'masuk', 'keluar']
-                    kata_negatif_bersih = [kata for kata in teks_negatif.split() if kata not in kata_abaikan]
-                    
-                    hitung_kata = Counter(kata_negatif_bersih)
-                    df_keluhan = pd.DataFrame(hitung_kata.most_common(10), columns=['Kata Kunci', 'Frekuensi'])
-                    
-                    fig2, ax2 = plt.subplots(figsize=(6, 5))
-                    sns.barplot(x='Frekuensi', y='Kata Kunci', data=df_keluhan, palette='Reds_r', ax=ax2)
-                    ax2.set_title("Top 10 Fokus Keluhan (Sentimen Negatif)")
-                    st.pyplot(fig2)
-                else:
-                    st.info("Hebat! Tidak ada keluhan (Sentimen Negatif) terdeteksi.")
-            
-            # Menampilkan Tabel Data
-            st.subheader("📋 Rincian Data")
-            st.dataframe(df[[kolom_teks, 'Prediksi_Sentimen']].head(100))
+                hitung_kata = Counter(kata_negatif_bersih)
+                df_keluhan = pd.DataFrame(hitung_kata.most_common(10), columns=['Kata Kunci', 'Frekuensi'])
+                
+                fig2, ax2 = plt.subplots(figsize=(6, 5))
+                sns.barplot(x='Frekuensi', y='Kata Kunci', data=df_keluhan, palette='Reds_r', ax=ax2)
+                ax2.set_title("Top 10 Fokus Keluhan (Sentimen Negatif)")
+                st.pyplot(fig2)
+            else:
+                st.info("Hebat! Tidak ada keluhan (Sentimen Negatif) terdeteksi.")
+        
+        # Menampilkan Tabel Data
+        st.subheader("📋 Rincian Data")
+        st.dataframe(df[[kolom_teks, 'Prediksi_Sentimen']].head(100)) # Menampilkan 100 baris pertamadiksi_Sentimen']].head(100))
