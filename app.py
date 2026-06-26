@@ -6,7 +6,6 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
-import json
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN
@@ -19,17 +18,29 @@ st.write("Unggah data ulasan terbaru dari Play Store untuk memantau performa pro
 # 2. CACHING AGAR APLIKASI CEPAT
 # ==========================================
 @st.cache_resource
-def load_models_and_assets():
+def load_models():
     model = joblib.load('nb_model_biner.pkl')
     tfidf = joblib.load('tfidf_biner.pkl')
-    
-    # Memuat kamus stemming instan dari file JSON
-    with open('kamus_stemming.json', 'r') as f:
-        kamus_offline = json.load(f)
-        
-    return model, tfidf, kamus_offline
+    return model, tfidf
 
-model, tfidf, kamus_offline = load_models_and_assets()
+@st.cache_resource
+def setup_nlp():
+    factory = StemmerFactory()
+    stemmer = factory.create_stemmer()
+    
+    df_slang = pd.read_csv('colloquial-indonesian-lexicon.csv')
+    slang_dict = dict(zip(df_slang['slang'], df_slang['formal']))
+    
+    df_stop = pd.read_csv('stopwordbahasa.csv', header=None)
+    kata_negasi = ['tidak', 'bukan', 'belum', 'jangan', 'kurang', 'enggak', 'ga', 'gak', 'tdk', 'g', 'nggak']
+    stopwords_tanpa_negasi = [k for k in df_stop[0].tolist() if k not in kata_negasi]
+    domain_stopwords = ['whatsapp', 'wa', 'aplikasi', 'app', 'apk', 'bintang', 'kasih', 'ulasan', 'update', 'hp', 'telepon', 'nomor', 'versi', 'sih', 'nya', 'nih', 'oh', 'ya', 'kok', 'dong', 'deh', 'mah', 'tuh']
+    stopwords_final = set(stopwords_tanpa_negasi + domain_stopwords)
+    
+    return stemmer, slang_dict, stopwords_final
+
+model, tfidf = load_models()
+stemmer, slang_dict, stopwords_final = setup_nlp()
 
 # ==========================================
 # 3. FUNGSI PREPROCESSING
@@ -59,28 +70,20 @@ if uploaded_file is not None:
     kolom_teks = st.selectbox("Pilih kolom yang berisi teks ulasan:", df.columns)
     
     if st.button("🚀 Mulai Analisis"):
-            # Tambahkan progress bar agar UI lebih interaktif
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+        with st.spinner("Sedang membersihkan teks dan melakukan prediksi... Mohon tunggu."):
             
-            status_text.text("Sedang membersihkan teks dan menghapus noise...")
+            # Preprocessing Cepat (Memoization)
             df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
-            progress_bar.progress(50)
+            semua_teks = ' '.join(df['teks_bersih'].astype(str))
+            kata_unik = set(semua_teks.split())
             
-            status_text.text("Melakukan stemming instan (Dictionary Lookup)...")
-            # Keajaiban terjadi di sini! Tidak pakai Sastrawi lagi, hanya mencocokkan kata
-            df['teks_stemmed'] = df['teks_bersih'].apply(
-                lambda x: ' '.join([kamus_offline.get(kata, kata) for kata in x.split()])
-            )
-            progress_bar.progress(80)
+            kamus_stemming = {kata: stemmer.stem(kata) for kata in kata_unik}
+            df['teks_stemmed'] = df['teks_bersih'].apply(lambda x: ' '.join([kamus_stemming.get(kata, kata) for kata in x.split()]))
             
-            status_text.text("Menebak sentimen pengguna...")
+            # Prediksi
             X_vektor = tfidf.transform(df['teks_stemmed'])
             df['Prediksi_Sentimen'] = model.predict(X_vektor)
             
-            progress_bar.progress(100)
-            status_text.text("Selesai dalam sekejap! 🎉")
-                
         # ==========================================
         # 5. VISUALISASI BUSINESS REPORTING
         # ==========================================
