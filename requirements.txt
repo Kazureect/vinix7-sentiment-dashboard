@@ -1,6 +1,6 @@
-streamlit==1.28.0
-pandas==2.1.1
-scikit-learn==1.3.1
-Sastrawi==1.0.1
-matplotlib==3.8.0
-seaborn==0.13.0
+streamlit
+pandas
+scikit-learn
+Sastrawi
+matplotlib
+seaborn
