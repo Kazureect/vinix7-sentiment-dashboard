@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import joblib
 import re
+import json
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
-import json
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN
@@ -29,8 +29,6 @@ def load_models_and_assets():
         
     return model, tfidf, kamus_offline
 
-model, tfidf, kamus_offline = load_models_and_assets()
-
 @st.cache_resource
 def setup_nlp():
     factory = StemmerFactory()
@@ -47,7 +45,7 @@ def setup_nlp():
     
     return stemmer, slang_dict, stopwords_final
 
-model, tfidf = load_models()
+model, tfidf, kamus_offline = load_models_and_assets()
 stemmer, slang_dict, stopwords_final = setup_nlp()
 
 # ==========================================
@@ -77,21 +75,29 @@ if uploaded_file is not None:
     # Meminta user memilih kolom mana yang berisi teks ulasan
     kolom_teks = st.selectbox("Pilih kolom yang berisi teks ulasan:", df.columns)
     
-    if st.button("🚀 Mulai Analisis"):
-        with st.spinner("Sedang membersihkan teks dan melakukan prediksi... Mohon tunggu."):
-            
-            # Preprocessing Cepat (Memoization)
-            df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
-            semua_teks = ' '.join(df['teks_bersih'].astype(str))
-            kata_unik = set(semua_teks.split())
-            
-            kamus_stemming = {kata: stemmer.stem(kata) for kata in kata_unik}
-            df['teks_stemmed'] = df['teks_bersih'].apply(lambda x: ' '.join([kamus_stemming.get(kata, kata) for kata in x.split()]))
-            
-            # Prediksi
-            X_vektor = tfidf.transform(df['teks_stemmed'])
-            df['Prediksi_Sentimen'] = model.predict(X_vektor)
-            
+if st.button("🚀 Mulai Analisis"):
+        # Tambahkan progress bar agar UI lebih interaktif
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("Sedang membersihkan teks dan menghapus noise...")
+        df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
+        progress_bar.progress(50)
+        
+        status_text.text("Melakukan stemming instan (Dictionary Lookup)...")
+        # Keajaiban terjadi di sini! Tidak pakai Sastrawi lagi, hanya mencocokkan kata
+        df['teks_stemmed'] = df['teks_bersih'].apply(
+            lambda x: ' '.join([kamus_offline.get(kata, kata) for kata in x.split()])
+        )
+        progress_bar.progress(80)
+        
+        status_text.text("Menebak sentimen pengguna...")
+        X_vektor = tfidf.transform(df['teks_stemmed'])
+        df['Prediksi_Sentimen'] = model.predict(X_vektor)
+        
+        progress_bar.progress(100)
+        status_text.text("Selesai dalam sekejap! 🎉")
+
         # ==========================================
         # 5. VISUALISASI BUSINESS REPORTING
         # ==========================================
@@ -128,4 +134,4 @@ if uploaded_file is not None:
         
         # Menampilkan Tabel Data
         st.subheader("📋 Rincian Data")
-        st.dataframe(df[[kolom_teks, 'Prediksi_Sentimen']].head(100)) # Menampilkan 100 baris pertamadiksi_Sentimen']].head(100))
+        st.dataframe(df[[kolom_teks, 'Prediksi_Sentimen']].head(100))
