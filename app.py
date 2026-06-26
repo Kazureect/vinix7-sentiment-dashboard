@@ -6,6 +6,7 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
+import json
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN
@@ -18,10 +19,17 @@ st.write("Unggah data ulasan terbaru dari Play Store untuk memantau performa pro
 # 2. CACHING AGAR APLIKASI CEPAT
 # ==========================================
 @st.cache_resource
-def load_models():
+def load_models_and_assets():
     model = joblib.load('nb_model_biner.pkl')
     tfidf = joblib.load('tfidf_biner.pkl')
-    return model, tfidf
+    
+    # Memuat kamus stemming instan dari file JSON
+    with open('kamus_stemming.json', 'r') as f:
+        kamus_offline = json.load(f)
+        
+    return model, tfidf, kamus_offline
+
+model, tfidf, kamus_offline = load_models_and_assets()
 
 @st.cache_resource
 def setup_nlp():
@@ -70,19 +78,27 @@ if uploaded_file is not None:
     kolom_teks = st.selectbox("Pilih kolom yang berisi teks ulasan:", df.columns)
     
     if st.button("🚀 Mulai Analisis"):
-        with st.spinner("Sedang membersihkan teks dan melakukan prediksi... Mohon tunggu."):
+            # Tambahkan progress bar agar UI lebih interaktif
+            progress_bar = st.progress(0)
+            status_text = st.empty()
             
-            # Preprocessing Cepat (Memoization)
+            status_text.text("Sedang membersihkan teks dan menghapus noise...")
             df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
-            semua_teks = ' '.join(df['teks_bersih'].astype(str))
-            kata_unik = set(semua_teks.split())
+            progress_bar.progress(50)
             
-            kamus_stemming = {kata: stemmer.stem(kata) for kata in kata_unik}
-            df['teks_stemmed'] = df['teks_bersih'].apply(lambda x: ' '.join([kamus_stemming.get(kata, kata) for kata in x.split()]))
+            status_text.text("Melakukan stemming instan (Dictionary Lookup)...")
+            # Keajaiban terjadi di sini! Tidak pakai Sastrawi lagi, hanya mencocokkan kata
+            df['teks_stemmed'] = df['teks_bersih'].apply(
+                lambda x: ' '.join([kamus_offline.get(kata, kata) for kata in x.split()])
+            )
+            progress_bar.progress(80)
             
-            # Prediksi
+            status_text.text("Menebak sentimen pengguna...")
             X_vektor = tfidf.transform(df['teks_stemmed'])
             df['Prediksi_Sentimen'] = model.predict(X_vektor)
+            
+            progress_bar.progress(100)
+            status_text.text("Selesai dalam sekejap! 🎉")
             
         # ==========================================
         # 5. VISUALISASI BUSINESS REPORTING
