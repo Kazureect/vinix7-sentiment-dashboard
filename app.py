@@ -77,29 +77,29 @@ if uploaded_file is not None:
     # Meminta user memilih kolom mana yang berisi teks ulasan
     kolom_teks = st.selectbox("Pilih kolom yang berisi teks ulasan:", df.columns)
     
-    if st.button("🚀 Mulai Analisis"):
-            # Tambahkan progress bar agar UI lebih interaktif
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            status_text.text("Sedang membersihkan teks dan menghapus noise...")
-            df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
-            progress_bar.progress(50)
-            
-            status_text.text("Melakukan stemming instan (Dictionary Lookup)...")
-            # Keajaiban terjadi di sini! Tidak pakai Sastrawi lagi, hanya mencocokkan kata
-            df['teks_stemmed'] = df['teks_bersih'].apply(
-                lambda x: ' '.join([kamus_offline.get(kata, kata) for kata in x.split()])
-            )
-            progress_bar.progress(80)
-            
-            status_text.text("Menebak sentimen pengguna...")
-            X_vektor = tfidf.transform(df['teks_stemmed'])
-            df['Prediksi_Sentimen'] = model.predict(X_vektor)
-            
-            progress_bar.progress(100)
-            status_text.text("Selesai dalam sekejap! 🎉")
-            
+if st.button("🚀 Mulai Analisis"):
+        # Tambahkan progress bar agar UI lebih interaktif
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("Sedang membersihkan teks dan menghapus noise...")
+        df['teks_bersih'] = df[kolom_teks].apply(preprocess_text)
+        progress_bar.progress(50)
+        
+        status_text.text("Melakukan stemming instan (Dictionary Lookup)...")
+        # Keajaiban terjadi di sini! Tidak pakai Sastrawi lagi, hanya mencocokkan kata
+        df['teks_stemmed'] = df['teks_bersih'].apply(
+            lambda x: ' '.join([kamus_offline.get(kata, kata) for kata in x.split()])
+        )
+        progress_bar.progress(80)
+        
+        status_text.text("Menebak sentimen pengguna...")
+        X_vektor = tfidf.transform(df['teks_stemmed'])
+        df['Prediksi_Sentimen'] = model.predict(X_vektor)
+        
+        progress_bar.progress(100)
+        status_text.text("Selesai dalam sekejap! 🎉")
+
         # ==========================================
         # 5. VISUALISASI BUSINESS REPORTING
         # ==========================================
@@ -136,4 +136,4 @@ if uploaded_file is not None:
         
         # Menampilkan Tabel Data
         st.subheader("📋 Rincian Data")
-        st.dataframe(df[[kolom_teks, 'Prediksi_Sentimen']].head(100)) # Menampilkan 100 baris pertama
+        st.dataframe(df[[kolom_teks, 'Prediksi_Sentimen']].head(100))
