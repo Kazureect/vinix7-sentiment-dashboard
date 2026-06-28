@@ -107,7 +107,7 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.success(f"File berhasil diunggah! Total data: {len(df)} baris.")
     
-    kolom_teks = st.selectbox("Pilih kolom yang berisi teks ulasan aslinya (Umumnya kolom "content"): ", df.columns)
+    kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya (Umumnya kolom "content"): ', df.columns)
     
     if st.button("🚀 Mulai Analisis"):
         with st.spinner("Sedang memproses teks (Dual Pipeline) dan melakukan prediksi..."):
