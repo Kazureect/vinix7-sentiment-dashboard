@@ -16,6 +16,7 @@ from google import genai
 st.set_page_config(page_title="Vinix7 Sentiment Dashboard", layout="wide")
 st.title("📊 Dashboard Analisis Sentimen Ulasan Pengguna")
 st.write("Unggah data ulasan terbaru dari Play Store untuk memantau performa produk digital perusahaan.")
+st.markdown("Gunakan [Dataset Contoh](https://drive.google.com/drive/folders/1m0HO-eF6Ie6RG3OvEZFKJQobYBYCfueG?usp=sharing) untuk mencoba dashboard")
 
 # Inisialisasi Gemini Client menggunakan Streamlit Secrets
 try:
