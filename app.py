@@ -138,7 +138,8 @@ if uploaded_file is not None:
             color_map = {'Positif': '#66b3ff', 'Negatif': '#ff9999', 'Netral': '#ffcc99'}
             colors = [color_map.get(x, '#cccccc') for x in sentimen_count.index]
             
-            fig1, ax1 = plt.subplots()
+            # 1. TAMBAHKAN figsize yang sama dengan chart 2
+            fig1, ax1 = plt.subplots(figsize=(6, 5)) 
             
             ax1.pie(sentimen_count, 
                     autopct='%1.0f%%',  # Mengubah menjadi angka bulat tanpa desimal
@@ -152,7 +153,9 @@ if uploaded_file is not None:
             # Opsional: Jika ingin menambahkan legenda karena label di luar dihapus
             ax1.legend(sentimen_count.index, loc="center", bbox_to_anchor=(0.5, -0.1), ncol=3)
             
-            st.pyplot(fig1)
+            # 2. Merapikan margin dan memastikan lebar menyesuaikan kolom
+            fig1.tight_layout()
+            st.pyplot(fig1, use_container_width=True)
             
         # Visualisasi 2: Bar Chart Keluhan Utama
         with col2:
@@ -187,12 +190,17 @@ if uploaded_file is not None:
                 hitung_kata = Counter(kata_negatif_bersih)
                 df_keluhan = pd.DataFrame(hitung_kata.most_common(10), columns=['Kata Kunci', 'Frekuensi'])
                 
+                # Ukuran disamakan: figsize=(6, 5)
                 fig2, ax2 = plt.subplots(figsize=(6, 5))
                 sns.barplot(x='Frekuensi', y='Kata Kunci', data=df_keluhan, palette='Reds_r', ax=ax2)
                 ax2.set_title("Top 10 Fokus Keluhan Utama")
-                st.pyplot(fig2)
+                
+                # 3. Merapikan margin dan memastikan lebar menyesuaikan kolom
+                fig2.tight_layout()
+                st.pyplot(fig2, use_container_width=True)
             else:
                 st.info("🎉 Tidak ada keluhan signifikan terdeteksi.")
+        
                 
         # ==========================================
         # 6. SUMMARIZATION (INSIGHT AI)
