@@ -6,6 +6,7 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
+import time
 
 # Import library baru untuk Gemini API
 from google import genai
@@ -168,7 +169,6 @@ if uploaded_file is not None:
             
             if gemini_client:
                 with st.spinner("Gemini AI sedang membaca dan meringkas keluhan dari pelanggan..."):
-                    # Ambil 50 keluhan terpanjang dari teks_summarization (teks utuh)
                     df_negatif['panjang_teks'] = df_negatif['teks_summarization'].apply(len)
                     keluhan_terpilih = df_negatif.sort_values(by='panjang_teks', ascending=False).head(50)
                     teks_untuk_diringkas = ".\n".join(keluhan_terpilih['teks_summarization'].tolist())
@@ -181,14 +181,25 @@ if uploaded_file is not None:
                     Keluhan:
                     {teks_untuk_diringkas}
                     """
-                    try:
-                        response = gemini_client.models.generate_content(
-                            model='gemini-3.5-flash',
-                            contents=prompt
-                        )
-                        st.info(response.text)
-                    except Exception as e:
-                        st.error(f"Gagal menghasilkan ringkasan AI: {e}")
+                    
+                    # Sistem Auto-Retry (Maksimal 3 kali percobaan)
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            response = gemini_client.models.generate_content(
+                                model='gemini-1.5-flash',
+                                contents=prompt
+                            )
+                            st.info(response.text)
+                            break # Jika berhasil, keluar dari loop
+                            
+                        except Exception as e:
+                            if "503" in str(e) and attempt < max_retries - 1:
+                                time.sleep(2) # Tunggu 2 detik sebelum mencoba lagi
+                                continue
+                            else:
+                                st.error(f"Gagal menghasilkan ringkasan AI setelah {max_retries} percobaan. Server AI sedang sibuk. Pesan error: {e}")
+                                break
             else:
                 st.warning("Silakan konfigurasikan GEMINI_API_KEY di Streamlit Secrets untuk mengaktifkan fitur ini.")
 
