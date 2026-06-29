@@ -248,6 +248,6 @@ if uploaded_file is not None:
         st.download_button(
             label="📥 Unduh Hasil Lengkap Prediksi (CSV)",
             data=csv_data,
-            file_name="hasil_prediksi_sentimen_vinix7.csv",
+            file_name="hasil_prediksi_sentimen.csv",
             mime="text/csv"
         )
