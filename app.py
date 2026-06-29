@@ -162,8 +162,7 @@ if uploaded_file is not None:
                 teks_negatif = ' '.join(df_negatif['teks_klasifikasi'].astype(str))
                 
                 # --- MODIFIKASI DAFTAR KATA ABAIKAN DI SINI ---
-                # Menambahkan kata negasi, kata penguat, dan kata sambung tidak penting 
-                # khusus untuk kebersihan visual grafik, tanpa mengganggu model SVM.
+                # Membaca daftar stopword dari file txt eksternal
                 try:
                     with open('daftar_stopword_keluhan-v2.txt', 'r', encoding='utf-8') as f:
                         # Membaca file baris demi baris, menghapus spasi/newline (\n), dan menyimpannya sebagai set
@@ -177,8 +176,14 @@ if uploaded_file is not None:
                         'malah', 'biar', 'pas','tidak', 'enggak', 'ga', 'gak', 'bukan', 
                         'belum', 'jangan', 'kurang', 'beli', 'banget', 'sangat', 'sekali', 
                         'paling'
+                    }
                 
-                kata_negatif_bersih = [kata for kata in teks_negatif.split() if kata not in kata_abaikan]
+                # Tokenisasi kata dengan mengubahnya menjadi huruf kecil terlebih dahulu (lowercase)
+                # agar pencocokan dengan file txt bersifat case-insensitive
+                kata_negatif_bersih = [
+                    kata.lower() for kata in teks_negatif.split() 
+                    if kata.lower() not in kata_abaikan
+                ]
                 
                 hitung_kata = Counter(kata_negatif_bersih)
                 df_keluhan = pd.DataFrame(hitung_kata.most_common(10), columns=['Kata Kunci', 'Frekuensi'])
