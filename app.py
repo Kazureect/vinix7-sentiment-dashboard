@@ -138,7 +138,6 @@ if uploaded_file is not None:
             color_map = {'Positif': '#66b3ff', 'Negatif': '#ff9999', 'Netral': '#ffcc99'}
             colors = [color_map.get(x, '#cccccc') for x in sentimen_count.index]
             
-            # 1. TAMBAHKAN figsize yang sama dengan chart 2
             fig1, ax1 = plt.subplots(figsize=(6, 5)) 
             
             ax1.pie(sentimen_count, 
@@ -149,8 +148,6 @@ if uploaded_file is not None:
                     wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
                     textprops={'fontsize': 8, 'fontweight': 'bold'})
             ax1.set_title("Proporsi Sentimen Pelanggan")
-            
-            # Opsional: Jika ingin menambahkan legenda karena label di luar dihapus
             ax1.legend(sentimen_count.index, loc="center", bbox_to_anchor=(0.5, -0.1), ncol=3)
             
             # 2. Merapikan margin dan memastikan lebar menyesuaikan kolom
@@ -163,7 +160,6 @@ if uploaded_file is not None:
             if not df_negatif.empty:
                 teks_negatif = ' '.join(df_negatif['teks_klasifikasi'].astype(str))
                 
-                # --- MODIFIKASI DAFTAR KATA ABAIKAN DI SINI ---
                 # Membaca daftar stopword dari file txt eksternal
                 try:
                     with open('daftar_stopword_keluhan-v2.txt', 'r', encoding='utf-8') as f:
@@ -190,7 +186,6 @@ if uploaded_file is not None:
                 hitung_kata = Counter(kata_negatif_bersih)
                 df_keluhan = pd.DataFrame(hitung_kata.most_common(10), columns=['Kata Kunci', 'Frekuensi'])
                 
-                # Ukuran disamakan: figsize=(6, 5)
                 fig2, ax2 = plt.subplots(figsize=(6, 5))
                 sns.barplot(x='Frekuensi', y='Kata Kunci', data=df_keluhan, palette='Reds_r', ax=ax2)
                 ax2.set_title("Top 10 Fokus Keluhan Utama")
