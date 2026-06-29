@@ -100,7 +100,7 @@ def dual_pipeline_process(text):
     return ' '.join(tokens_klasifikasi), ' '.join(tokens_summarization)
 
 # ==========================================
-# 4. ANTARMUKA UPLOAD DATA
+# 4. ANTARMUKA UPLOAD DATA & PRATINJAU
 # ==========================================
 uploaded_file = st.file_uploader("📂 Unggah file CSV Ulasan", type=['csv'])
 
@@ -108,7 +108,13 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.success(f"File berhasil diunggah! Total data: {len(df)} baris.")
     
-    kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya (Umumnya kolom "content"): ', df.columns)
+    # --- MODIFIKASI: Menambahkan Pratinjau Data ---
+    st.markdown("**Pratinjau Data (5 Baris Pertama):**")
+    st.dataframe(df.head())
+    st.divider() # Garis pembatas agar UI lebih rapi
+    # ----------------------------------------------
+    
+    kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya: ', df.columns)
     
     if st.button("🚀 Mulai Analisis"):
         with st.spinner("Sedang memproses teks (Dual Pipeline) dan melakukan prediksi..."):
@@ -141,8 +147,8 @@ if uploaded_file is not None:
             fig1, ax1 = plt.subplots(figsize=(6, 5)) 
             
             ax1.pie(sentimen_count, 
-                    autopct='%1.0f%%',  # Mengubah menjadi angka bulat tanpa desimal
-                    pctdistance=0.8,    # Menggeser posisi angka ke tengah ring donat (0.8 adalah titik tengah jika width=0.4)
+                    autopct='%1.0f%%',  
+                    pctdistance=0.8,    
                     colors=colors, 
                     startangle=90, 
                     wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
@@ -150,7 +156,6 @@ if uploaded_file is not None:
             ax1.set_title("Proporsi Sentimen Pelanggan")
             ax1.legend(sentimen_count.index, loc="center", bbox_to_anchor=(0.5, -0.1), ncol=3)
             
-            # 2. Merapikan margin dan memastikan lebar menyesuaikan kolom
             fig1.tight_layout()
             st.pyplot(fig1, use_container_width=True)
             
@@ -160,13 +165,10 @@ if uploaded_file is not None:
             if not df_negatif.empty:
                 teks_negatif = ' '.join(df_negatif['teks_klasifikasi'].astype(str))
                 
-                # Membaca daftar stopword dari file txt eksternal
                 try:
                     with open('daftar_stopword_keluhan-v2.txt', 'r', encoding='utf-8') as f:
-                        # Membaca file baris demi baris, menghapus spasi/newline (\n), dan menyimpannya sebagai set
                         kata_abaikan = {line.strip() for line in f if line.strip()}
                 except FileNotFoundError:
-                    # Fallback otomatis jika file txt belum ter-upload atau salah nama
                     st.warning("⚠️ File 'daftar_stopword_keluhan-v2.txt' tidak ditemukan. Menggunakan daftar bawaan.")
                     kata_abaikan = {
                         'aplikasi', 'app', 'apk', 'whatsapp', 'wa', 'nya', 'sih', 'ya', 
@@ -176,8 +178,6 @@ if uploaded_file is not None:
                         'paling'
                     }
                 
-                # Tokenisasi kata dengan mengubahnya menjadi huruf kecil terlebih dahulu (lowercase)
-                # agar pencocokan dengan file txt bersifat case-insensitive
                 kata_negatif_bersih = [
                     kata.lower() for kata in teks_negatif.split() 
                     if kata.lower() not in kata_abaikan
@@ -190,7 +190,6 @@ if uploaded_file is not None:
                 sns.barplot(x='Frekuensi', y='Kata Kunci', data=df_keluhan, palette='Reds_r', ax=ax2)
                 ax2.set_title("Top 10 Fokus Keluhan Utama")
                 
-                # 3. Merapikan margin dan memastikan lebar menyesuaikan kolom
                 fig2.tight_layout()
                 st.pyplot(fig2, use_container_width=True)
             else:
@@ -219,7 +218,6 @@ if uploaded_file is not None:
                     {teks_untuk_diringkas}
                     """
                     
-                    # Sistem Auto-Retry (Maksimal 3 kali percobaan)
                     max_retries = 3
                     for attempt in range(max_retries):
                         try:
@@ -228,11 +226,11 @@ if uploaded_file is not None:
                                 contents=prompt
                             )
                             st.info(response.text)
-                            break # Jika berhasil, keluar dari loop
+                            break 
                             
                         except Exception as e:
                             if "503" in str(e) and attempt < max_retries - 1:
-                                time.sleep(2) # Tunggu 2 detik sebelum mencoba lagi
+                                time.sleep(2) 
                                 continue
                             else:
                                 st.error(f"Gagal menghasilkan ringkasan AI setelah {max_retries} percobaan. Server AI sedang sibuk. Pesan error: {e}")
