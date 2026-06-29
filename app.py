@@ -187,7 +187,7 @@ if uploaded_file is not None:
                     for attempt in range(max_retries):
                         try:
                             response = gemini_client.models.generate_content(
-                                model='gemini-1.5-flash',
+                                model='gemini-2.5-flash',
                                 contents=prompt
                             )
                             st.info(response.text)
