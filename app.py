@@ -131,23 +131,53 @@ if uploaded_file is not None:
         st.subheader("📈 Hasil Analisis Sentimen")
         
         col1, col2 = st.columns(2)
-        
+
+        # Visualisasi 1: Proporsi Sentimen Pelanggan
         with col1:
             sentimen_count = df_valid['Prediksi_Sentimen'].value_counts()
             color_map = {'Positif': '#66b3ff', 'Negatif': '#ff9999', 'Netral': '#ffcc99'}
             colors = [color_map.get(x, '#cccccc') for x in sentimen_count.index]
             
             fig1, ax1 = plt.subplots(figsize=(5, 5))
-            ax1.pie(sentimen_count, labels=sentimen_count.index, autopct='%1.1f%%', 
-                    colors=colors, startangle=90, wedgeprops=dict(width=0.4))
+            
+            ax1.pie(sentimen_count, 
+                    autopct='%1.0f%%',  # Mengubah menjadi angka bulat tanpa desimal
+                    pctdistance=0.8,    # Menggeser posisi angka ke tengah ring donat (0.8 adalah titik tengah jika width=0.4)
+                    colors=colors, 
+                    startangle=90, 
+                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2), # Menambahkan batas putih antar warna
+                    textprops={'fontsize': 14, 'fontweight': 'bold'}) # Menebalkan angka seperti gambar kedua
+            
             ax1.set_title("Proporsi Sentimen Pelanggan")
+            
+            # Opsional: Jika ingin menambahkan legenda karena label di luar dihapus
+            # ax1.legend(sentimen_count.index, loc="center", bbox_to_anchor=(0.5, -0.1), ncol=3)
+            
             st.pyplot(fig1)
             
+        # Visualisasi 2: Bar Chart Keluhan Utama
         with col2:
             df_negatif = df_valid[df_valid['Prediksi_Sentimen'] == 'Negatif'].copy()
             if not df_negatif.empty:
                 teks_negatif = ' '.join(df_negatif['teks_klasifikasi'].astype(str))
-                kata_abaikan = {'aplikasi', 'app', 'apk', 'whatsapp', 'wa', 'nya', 'sih', 'ya', 'dong', 'kasih', 'bikin', 'buat', 'pakai'}
+                
+                # --- MODIFIKASI DAFTAR KATA ABAIKAN DI SINI ---
+                # Menambahkan kata negasi, kata penguat, dan kata sambung tidak penting 
+                # khusus untuk kebersihan visual grafik, tanpa mengganggu model SVM.
+                try:
+                    with open('daftar_stopword_keluhan-v2.txt', 'r', encoding='utf-8') as f:
+                        # Membaca file baris demi baris, menghapus spasi/newline (\n), dan menyimpannya sebagai set
+                        kata_abaikan = {line.strip() for line in f if line.strip()}
+                except FileNotFoundError:
+                    # Fallback otomatis jika file txt belum ter-upload atau salah nama
+                    st.warning("⚠️ File 'daftar_stopword_keluhan-v2.txt' tidak ditemukan. Menggunakan daftar bawaan.")
+                    kata_abaikan = {
+                        'aplikasi', 'app', 'apk', 'whatsapp', 'wa', 'nya', 'sih', 'ya', 
+                        'dong', 'kasih', 'bikin', 'buat', 'pakai', 'aja', 'saja', 'terus',
+                        'malah', 'biar', 'pas','tidak', 'enggak', 'ga', 'gak', 'bukan', 
+                        'belum', 'jangan', 'kurang', 'beli', 'banget', 'sangat', 'sekali', 
+                        'paling'
+                
                 kata_negatif_bersih = [kata for kata in teks_negatif.split() if kata not in kata_abaikan]
                 
                 hitung_kata = Counter(kata_negatif_bersih)
