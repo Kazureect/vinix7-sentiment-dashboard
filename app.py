@@ -138,7 +138,7 @@ if uploaded_file is not None:
             color_map = {'Positif': '#66b3ff', 'Negatif': '#ff9999', 'Netral': '#ffcc99'}
             colors = [color_map.get(x, '#cccccc') for x in sentimen_count.index]
             
-            fig1, ax1 = plt.subplots
+            # fig1, ax1 = plt.subplots(figsize=(5, 5))
             
             ax1.pie(sentimen_count, 
                     autopct='%1.0f%%',  # Mengubah menjadi angka bulat tanpa desimal
