@@ -138,16 +138,15 @@ if uploaded_file is not None:
             color_map = {'Positif': '#66b3ff', 'Negatif': '#ff9999', 'Netral': '#ffcc99'}
             colors = [color_map.get(x, '#cccccc') for x in sentimen_count.index]
             
-            fig1, ax1 = plt.subplots(figsize=(5, 5))
+            fig1, ax1 = plt.subplots
             
             ax1.pie(sentimen_count, 
                     autopct='%1.0f%%',  # Mengubah menjadi angka bulat tanpa desimal
                     pctdistance=0.8,    # Menggeser posisi angka ke tengah ring donat (0.8 adalah titik tengah jika width=0.4)
                     colors=colors, 
                     startangle=90, 
-                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2), # Menambahkan batas putih antar warna
-                    textprops={'fontsize': 14, 'fontweight': 'bold'}) # Menebalkan angka seperti gambar kedua
-            
+                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
+                    textprops={'fontsize': 8, 'fontweight': 'bold'})
             ax1.set_title("Proporsi Sentimen Pelanggan")
             
             # Opsional: Jika ingin menambahkan legenda karena label di luar dihapus
