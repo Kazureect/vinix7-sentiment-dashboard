@@ -151,7 +151,7 @@ if uploaded_file is not None:
             ax1.set_title("Proporsi Sentimen Pelanggan")
             
             # Opsional: Jika ingin menambahkan legenda karena label di luar dihapus
-            # ax1.legend(sentimen_count.index, loc="center", bbox_to_anchor=(0.5, -0.1), ncol=3)
+            ax1.legend(sentimen_count.index, loc="center", bbox_to_anchor=(0.5, -0.1), ncol=3)
             
             st.pyplot(fig1)
             
