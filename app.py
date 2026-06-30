@@ -117,13 +117,36 @@ if uploaded_file is not None:
     kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya: ', df.columns)
     
     if st.button("🚀 Mulai Analisis"):
-        with st.spinner("Sedang memproses teks (Dual Pipeline) dan melakukan prediksi..."):
+        with st.spinner("Sedang memproses teks secara massal (Optimasi Turbo) dan melakukan prediksi..."):
             
-            # Eksekusi fungsi jalur ganda secara efisien
-            hasil_proses = df[kolom_teks].apply(dual_pipeline_process)
+            # ==========================================================
+            # OPTIMASI SUPER CEPAT UNTUK DATASET BESAR
+            # ==========================================================
+            
+            # 1. Gabungkan seluruh teks dan bersihkan regex massal
+            semua_teks_mentah = " ".join(df[kolom_teks].astype(str).tolist()).lower()
+            semua_teks_bersih = clean_pattern.sub(' ', semua_teks_mentah)
+            
+            # 2. Dapatkan hanya kata unik dari ratusan ribu baris (Sangat Cepat)
+            kata_unik = set(semua_teks_bersih.split())
+            
+            # 3. Pre-populate Cache: Penuhi memori Sastrawi di awal
+            for kata in kata_unik:
+                kata_normal = slang_dict.get(kata, kata)
+                if kata_normal not in stopwords_final and kata_normal not in stem_cache:
+                    stem_cache[kata_normal] = stemmer.stem(kata_normal)
+                    
+            # 4. Eksekusi pemrosesan menggunakan List Comprehension (3x lipat lebih cepat dari df.apply)
+            teks_mentah_list = df[kolom_teks].astype(str).tolist()
+            hasil_proses = [dual_pipeline_process(teks) for teks in teks_mentah_list]
+            
+            # Pecah hasilnya kembali ke dalam dua kolom
             df['teks_klasifikasi'] = [res[0] for res in hasil_proses]
             df['teks_summarization'] = [res[1] for res in hasil_proses]
             
+            # ==========================================================
+            
+            # Hapus baris kosong
             df_valid = df[df['teks_klasifikasi'] != ""].copy()
             
             # Prediksi SVM menggunakan kolom teks_klasifikasi
