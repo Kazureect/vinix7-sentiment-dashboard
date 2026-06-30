@@ -91,11 +91,12 @@ def dual_pipeline_process(text):
         # Jalur LLM (Tetap utuh)
         tokens_summarization.append(word_normal)
         
-        # Jalur SVM (Tanpa stopword & di-stemming)
+        # Jalur SVM (Tanpa stopword)
         if word_normal not in stopwords_final:
-            if word_normal not in stem_cache:
-                stem_cache[word_normal] = stemmer.stem(word_normal)
-            tokens_klasifikasi.append(stem_cache[word_normal])
+            # KUNCI OPTIMASI: Ambil dari cache jika ada. 
+            # Jika tidak ada (berarti typo langka), biarkan saja apa adanya.
+            stemmed_word = stem_cache.get(word_normal, word_normal)
+            tokens_klasifikasi.append(stemmed_word)
             
     return ' '.join(tokens_klasifikasi), ' '.join(tokens_summarization)
 
@@ -117,39 +118,36 @@ if uploaded_file is not None:
     kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya: ', df.columns)
     
     if st.button("🚀 Mulai Analisis"):
-        with st.spinner("Sedang memproses teks secara massal (Optimasi Turbo) dan melakukan prediksi..."):
+        with st.spinner("Sedang memproses puluhan ribu teks (Optimasi Ekstrim) dan memprediksi..."):
             
-            # ==========================================================
-            # OPTIMASI SUPER CEPAT UNTUK DATASET BESAR
-            # ==========================================================
-            
-            # 1. Gabungkan seluruh teks dan bersihkan regex massal
+            # 1. Gabungkan seluruh teks dan bersihkan (Sangat Cepat)
             semua_teks_mentah = " ".join(df[kolom_teks].astype(str).tolist()).lower()
             semua_teks_bersih = clean_pattern.sub(' ', semua_teks_mentah)
             
-            # 2. Dapatkan hanya kata unik dari ratusan ribu baris (Sangat Cepat)
-            kata_unik = set(semua_teks_bersih.split())
+            # 2. Hitung frekuensi kata menggunakan Counter
+            hitung_semua_kata = Counter(semua_teks_bersih.split())
             
-            # 3. Pre-populate Cache: Penuhi memori Sastrawi di awal
-            for kata in kata_unik:
+            # 3. STRATEGI PEMANGKASAN: Hanya ambil kata yang muncul >= 3 kali
+            # Membuang puluhan ribu typo ekstrim agar Sastrawi tidak bekerja sia-sia
+            kata_penting = {kata for kata, freq in hitung_semua_kata.items() if freq >= 3}
+            
+            # 4. Pre-populate Cache HANYA untuk kata penting
+            for kata in kata_penting:
                 kata_normal = slang_dict.get(kata, kata)
                 if kata_normal not in stopwords_final and kata_normal not in stem_cache:
                     stem_cache[kata_normal] = stemmer.stem(kata_normal)
                     
-            # 4. Eksekusi pemrosesan menggunakan List Comprehension (3x lipat lebih cepat dari df.apply)
+            # 5. Eksekusi pemrosesan kilat dengan List Comprehension
             teks_mentah_list = df[kolom_teks].astype(str).tolist()
             hasil_proses = [dual_pipeline_process(teks) for teks in teks_mentah_list]
             
-            # Pecah hasilnya kembali ke dalam dua kolom
+            # Pecah hasil kembali ke dataframe
             df['teks_klasifikasi'] = [res[0] for res in hasil_proses]
             df['teks_summarization'] = [res[1] for res in hasil_proses]
             
-            # ==========================================================
-            
-            # Hapus baris kosong
             df_valid = df[df['teks_klasifikasi'] != ""].copy()
             
-            # Prediksi SVM menggunakan kolom teks_klasifikasi
+            # Prediksi SVM
             X_vektor = tfidf.transform(df_valid['teks_klasifikasi'])
             df_valid['Prediksi_Sentimen'] = model.predict(X_vektor)
             
