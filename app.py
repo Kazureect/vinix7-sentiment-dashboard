@@ -118,7 +118,7 @@ if uploaded_file is not None:
     kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya: ', df.columns)
     
     if st.button("🚀 Mulai Analisis"):
-        with st.spinner("Sedang memproses puluhan ribu teks (Optimasi Ekstrim) dan memprediksi..."):
+        with st.spinner("Sedang memproses seluruh teks dan memprediksi..."):
             
             # 1. Gabungkan seluruh teks dan bersihkan (Sangat Cepat)
             semua_teks_mentah = " ".join(df[kolom_teks].astype(str).tolist()).lower()
