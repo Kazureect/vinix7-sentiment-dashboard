@@ -187,10 +187,10 @@ if uploaded_file is not None:
                 teks_negatif = ' '.join(df_negatif['teks_klasifikasi'].astype(str))
                 
                 try:
-                    with open('daftar_stopword_keluhan-v2.txt', 'r', encoding='utf-8') as f:
+                    with open('stopwordbahasa.csv', 'r', encoding='utf-8') as f:
                         kata_abaikan = {line.strip() for line in f if line.strip()}
                 except FileNotFoundError:
-                    st.warning("⚠️ File 'daftar_stopword_keluhan-v2.txt' tidak ditemukan. Menggunakan daftar bawaan.")
+                    st.warning("⚠️ File 'stopwordbahasa.csv' tidak ditemukan. Menggunakan daftar bawaan.")
                     kata_abaikan = {
                         'aplikasi', 'app', 'apk', 'whatsapp', 'wa', 'nya', 'sih', 'ya', 
                         'dong', 'kasih', 'bikin', 'buat', 'pakai', 'aja', 'saja', 'terus',
