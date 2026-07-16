@@ -15,7 +15,7 @@ from google import genai
 # 1. KONFIGURASI HALAMAN & API KEY
 # ==========================================
 st.set_page_config(page_title="Vinix7 Sentiment Dashboard", layout="wide")
-st.title("📊 Dashboard Analisis Sentimen Ulasan Pengguna")
+st.title("Dashboard Analisis Sentimen Ulasan Pengguna")
 st.write("Unggah data ulasan terbaru dari Play Store untuk memantau performa produk digital perusahaan.")
 st.markdown("Bisa gunakan [Dataset Contoh](https://drive.google.com/drive/folders/1m0HO-eF6Ie6RG3OvEZFKJQobYBYCfueG?usp=sharing) untuk mencoba dashboard.")
 
@@ -26,7 +26,7 @@ try:
     gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 except Exception as e:
     gemini_client = None
-    st.sidebar.warning("⚠️ API Key Gemini belum dikonfigurasi di Streamlit Secrets.")
+    st.sidebar.warning("API Key Gemini belum dikonfigurasi di Streamlit Secrets.")
 
 # ==========================================
 # 2. CACHING AGAR APLIKASI CEPAT
@@ -103,7 +103,7 @@ def dual_pipeline_process(text):
 # ==========================================
 # 4. ANTARMUKA UPLOAD DATA & PRATINJAU
 # ==========================================
-uploaded_file = st.file_uploader("📂 Unggah file CSV Ulasan", type=['csv'])
+uploaded_file = st.file_uploader("Unggah file CSV Ulasan", type=['csv'])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -117,7 +117,7 @@ if uploaded_file is not None:
     
     kolom_teks = st.selectbox('Pilih kolom yang berisi teks ulasan aslinya: ', df.columns)
     
-    if st.button("🚀 Mulai Analisis"):
+    if st.button("Mulai Analisis"):
         with st.spinner("Sedang memproses seluruh teks dan memprediksi..."):
             
             # 1. Gabungkan seluruh teks dan bersihkan (Sangat Cepat)
@@ -155,7 +155,7 @@ if uploaded_file is not None:
         # 5. VISUALISASI BUSINESS REPORTING
         # ==========================================
         st.divider()
-        st.subheader("📈 Hasil Analisis Sentimen")
+        st.subheader("Hasil Analisis Sentimen")
         
         col1, col2 = st.columns(2)
 
@@ -190,7 +190,7 @@ if uploaded_file is not None:
                     with open('stopwordbahasa.csv', 'r', encoding='utf-8') as f:
                         kata_abaikan = {line.strip() for line in f if line.strip()}
                 except FileNotFoundError:
-                    st.warning("⚠️ File 'stopwordbahasa.csv' tidak ditemukan. Menggunakan daftar bawaan.")
+                    st.warning("File 'stopwordbahasa.csv' tidak ditemukan. Menggunakan daftar bawaan.")
                     kata_abaikan = {
                         'aplikasi', 'app', 'apk', 'whatsapp', 'wa', 'nya', 'sih', 'ya', 
                         'dong', 'kasih', 'bikin', 'buat', 'pakai', 'aja', 'saja', 'terus',
@@ -222,7 +222,7 @@ if uploaded_file is not None:
         # ==========================================
         if not df_negatif.empty:
             st.divider()
-            st.subheader("💡 Rangkuman Keluhan Utama (AI Insight)")
+            st.subheader("Rangkuman Keluhan Utama (AI Insight)")
             
             if gemini_client:
                 with st.spinner("Gemini AI sedang membaca dan meringkas keluhan dari pelanggan..."):
@@ -262,12 +262,12 @@ if uploaded_file is not None:
         # ==========================================
         # 7. TABEL & EKSPOR DATA
         # ==========================================
-        st.subheader("📝 Rincian Data Terprediksi")
+        st.subheader("Rincian Data Terprediksi")
         st.dataframe(df_valid[[kolom_teks, 'teks_klasifikasi', 'teks_summarization', 'Prediksi_Sentimen']]) 
         
         csv_data = df_valid.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Unduh Hasil Lengkap Prediksi (CSV)",
+            label="Unduh Hasil Lengkap Prediksi (CSV)",
             data=csv_data,
             file_name="hasil_prediksi_sentimen.csv",
             mime="text/csv"
