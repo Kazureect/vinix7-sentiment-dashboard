@@ -5,3 +5,4 @@ Sastrawi
 matplotlib
 seaborn
 google-genai
+wordcloud
