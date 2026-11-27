@@ -63,9 +63,10 @@ def load_models():
     model = joblib.load("svm_sentiment_model.pkl")
     tfidf = joblib.load("tfidf_vectorizer_dashboard.pkl")
 
-    # Compatibility shim jika dijalankan pada scikit-learn < 1.6
+    known_root_words = set()
     if hasattr(tfidf, "transformer_list"):
-        for _, trans in tfidf.transformer_list:
+        for name, trans in tfidf.transformer_list:
+            # Compatibility shim jika dijalankan pada scikit-learn < 1.6
             if hasattr(trans, "_tfidf") and not hasattr(trans._tfidf, "_idf_diag"):
                 idf = trans._tfidf.__dict__.get("idf_")
                 if idf is not None:
@@ -76,7 +77,13 @@ def load_models():
                         format="csr",
                         dtype=idf.dtype,
                     )
-    return model, tfidf
+            # Optimasi 1: Ekstrak 6.498 kata dasar unik dari kosakata word_tfidf
+            if name == "word_tfidf" and hasattr(trans, "vocabulary_"):
+                known_root_words = {
+                    term for term in trans.vocabulary_.keys() if " " not in term
+                }
+
+    return model, tfidf, known_root_words
 
 
 @st.cache_resource
@@ -132,7 +139,7 @@ def get_stem_cache():
     return {}
 
 
-model, tfidf = load_models()
+model, tfidf, known_root_words = load_models()
 stemmer, slang_dict, stopwords_final, stopwords_visual, clean_pattern, repeat_char_pattern = setup_nlp()
 stem_cache = get_stem_cache()
 
@@ -174,29 +181,45 @@ def normalize_text_tokens(text):
     return normalized_tokens
 
 
-def preprocess_batch(raw_texts):
+def preprocess_batch_fast(raw_texts):
     """
-    Menjalankan preprocessing jalur ganda secara konsisten dengan Opsi 1:
-    - Jalur 1 (SVM): Normalisasi slang + hapus stopword (kecuali negasi) + Sastrawi stemming.
-    - Jalur 2 (LLM): Normalisasi slang tanpa menghapus stopword agar konteks kalimat utuh.
+    Preprocessing jalur ganda berkecepatan tinggi yang konsisten dengan Opsi 1:
+    1. Vocabulary short-circuiting: kata yang sudah ada di known_root_words tidak di-stem ulang.
+    2. Adaptive frequency threshold: pada dataset besar (>=2.000 baris unik), lewati stemming kata langka (<3x).
+    3. Filter panjang kata ekstrem (3..20 karakter) untuk menghindari backtracking lambat pada Sastrawi.
     """
     normalized_docs = [normalize_text_tokens(t) for t in raw_texts]
 
-    # Pre-populate stem_cache untuk SEMUA kata unik non-stopword agar 100% konsisten
-    unique_words = {
+    token_counts = Counter(
         word
         for doc in normalized_docs
         for word in doc
-        if word not in stopwords_final and word not in stem_cache
-    }
-    for word in unique_words:
+        if word not in stopwords_final
+    )
+
+    min_freq = 3 if len(raw_texts) >= 2000 else 1
+
+    words_to_stem = [
+        word
+        for word, freq in token_counts.items()
+        if freq >= min_freq
+        and 3 <= len(word) <= 20
+        and word not in known_root_words
+        and word not in stem_cache
+    ]
+
+    for word in words_to_stem:
         stem_cache[word] = stemmer.stem(word)
 
     teks_klasifikasi = []
     teks_summarization = []
 
     for doc in normalized_docs:
-        tokens_cls = [stem_cache[w] for w in doc if w not in stopwords_final]
+        tokens_cls = [
+            word if word in known_root_words else stem_cache.get(word, word)
+            for word in doc
+            if word not in stopwords_final
+        ]
         teks_klasifikasi.append(" ".join(tokens_cls))
         teks_summarization.append(" ".join(doc))
 
@@ -264,30 +287,46 @@ if uploaded_file is not None:
 
     if st.button("Mulai Analisis", type="primary"):
         with st.spinner("Sedang memproses seluruh teks dan memprediksi sentimen..."):
+            start_time = time.perf_counter()
             df_proc = df.copy()
-            teks_mentah_list = df_proc[kolom_teks].tolist()
+            raw_series = df_proc[kolom_teks].fillna("").astype(str)
 
-            teks_cls, teks_sum = preprocess_batch(teks_mentah_list)
-            df_proc["teks_klasifikasi"] = teks_cls
-            df_proc["teks_summarization"] = teks_sum
+            # Optimasi 3: Deduplikasi teks identik sebelum preprocessing & prediksi
+            unique_texts = raw_series.unique().tolist()
+            u_cls, u_sum = preprocess_batch_fast(unique_texts)
 
-            df_valid = df_proc[df_proc["teks_klasifikasi"].str.strip() != ""].copy()
+            map_cls = dict(zip(unique_texts, u_cls))
+            map_sum = dict(zip(unique_texts, u_sum))
 
-            if df_valid.empty:
+            valid_unique = [
+                (txt, cls) for txt, cls in zip(unique_texts, u_cls) if cls.strip() != ""
+            ]
+
+            if not valid_unique:
                 st.warning(
                     "Tidak ditemukan teks ulasan yang valid setelah pembersihan. "
                     "Pastikan Anda memilih kolom teks ulasan yang benar."
                 )
                 st.session_state.pop("hasil_analisis", None)
             else:
-                X_vektor = tfidf.transform(df_valid["teks_klasifikasi"])
-                df_valid["Prediksi_Sentimen"] = model.predict(X_vektor)
+                u_valid_raw, u_valid_cls = zip(*valid_unique)
+                X_vektor = tfidf.transform(list(u_valid_cls))
+                u_preds = model.predict(X_vektor)
+                map_pred = dict(zip(u_valid_raw, u_preds))
+
+                df_proc["teks_klasifikasi"] = raw_series.map(map_cls)
+                df_proc["teks_summarization"] = raw_series.map(map_sum)
+                df_proc["Prediksi_Sentimen"] = raw_series.map(map_pred)
+
+                df_valid = df_proc[df_proc["Prediksi_Sentimen"].notna()].copy()
+                elapsed_sec = time.perf_counter() - start_time
 
                 st.session_state["hasil_analisis"] = {
                     "df_valid": df_valid,
                     "kolom_teks": kolom_teks,
                     "kolom_tanggal": kolom_tanggal,
                     "ai_summary": None,
+                    "elapsed_sec": elapsed_sec,
                 }
 
     # ==========================================
@@ -298,9 +337,12 @@ if uploaded_file is not None:
         df_valid = hasil["df_valid"]
         kolom_teks_aktif = hasil["kolom_teks"]
         kolom_tanggal_aktif = hasil["kolom_tanggal"]
+        elapsed_sec = hasil.get("elapsed_sec")
 
         st.divider()
         st.subheader("Ringkasan Hasil Analisis Sentimen")
+        if elapsed_sec is not None:
+            st.caption(f"Selesai memproses {len(df_valid):,} ulasan valid dalam {elapsed_sec:.2f} detik.")
 
         total_valid = len(df_valid)
         counts = df_valid["Prediksi_Sentimen"].value_counts()
@@ -551,3 +593,11 @@ if uploaded_file is not None:
             kolom_tampil.insert(0, kolom_tanggal_aktif)
 
         st.dataframe(df_valid[kolom_tampil], use_container_width=True)
+
+        csv_data = df_valid.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            label="Unduh Hasil Lengkap Prediksi (CSV)",
+            data=csv_data,
+            file_name="hasil_prediksi_sentimen.csv",
+            mime="text/csv",
+        )
