@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 st.title("Dashboard Analisis Sentimen Ulasan Pengguna")
-st.write("Unggah data ulasan terbaru dari Play Store untuk memantau performa produk digital perusahaan.")
+st.write("Unggah data ulasan terbaru untuk memantau performa produk digital perusahaan.")
 st.markdown(
     "Bisa gunakan [Dataset Contoh](https://drive.google.com/drive/folders/1m0HO-eF6Ie6RG3OvEZFKJQobYBYCfueG?usp=sharing) untuk mencoba dashboard."
 )
@@ -323,7 +323,7 @@ if uploaded_file is not None:
     col_pilih1, col_pilih2 = st.columns(2)
     with col_pilih1:
         kolom_teks = st.selectbox(
-            "Pilih kolom yang berisi teks ulasan/komentar (Wajib):",
+            "Pilih kolom yang berisi teks ulasan (Wajib):",
             df.columns,
             index=default_text_idx,
         )
@@ -401,9 +401,9 @@ if uploaded_file is not None:
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Total Ulasan Valid", f"{total_valid:,}")
-        m2.metric("Positif", f"{jml_pos:,}", f"{(jml_pos / total_valid * 100):.1f}%")
-        m3.metric("Netral", f"{jml_net:,}", f"{(jml_net / total_valid * 100):.1f}%")
-        m4.metric("Negatif", f"{jml_neg:,}", f"{(jml_neg / total_valid * 100):.1f}%")
+        m2.metric("Positif", f"{jml_pos:,}")
+        m3.metric("Netral", f"{jml_net:,}")
+        m4.metric("Negatif", f"{jml_neg:,}")
 
         st.write("")
         color_map = {"Positif": "#66b3ff", "Negatif": "#ff9999", "Netral": "#ffcc99"}
