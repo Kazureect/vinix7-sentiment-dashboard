@@ -77,7 +77,7 @@ def load_models():
                         format="csr",
                         dtype=idf.dtype,
                     )
-            # Optimasi 1: Ekstrak 6.498 kata dasar unik dari kosakata word_tfidf
+            # Ekstrak 6.498 kata dasar unik dari kosakata word_tfidf
             if name == "word_tfidf" and hasattr(trans, "vocabulary_"):
                 known_root_words = {
                     term for term in trans.vocabulary_.keys() if " " not in term
@@ -99,28 +99,44 @@ def setup_nlp():
         )
     )
 
-    # Kamus slang spesifik domain aplikasi (konsisten dengan tahap training Opsi 1)
-    domain_specific_slang = {
-        "vc": "panggilan video",
-        "tc": "tes kontak",
-        "sw": "status",
-        "wa": "whatsapp",
-        "apk": "aplikasi",
-        "gbs": "tidak bisa",
-        "lemot": "lambat",
-        "bug": "eror",
+    # Kamus slang lintas domain (100% sinkron dengan Tahap 2 training)
+    general_digital_slang = {
+        # Umum dan Teknis Aplikasi
+        "apk": "aplikasi", "app": "aplikasi", "apps": "aplikasi",
+        "gbs": "tidak bisa", "gabisa": "tidak bisa", "gakbisa": "tidak bisa",
+        "lemot": "lambat", "lelet": "lambat", "lola": "lambat",
+        "bug": "eror", "ngebug": "eror", "error": "eror", "err": "eror",
+        "fc": "keluar sendiri", "forceclose": "keluar sendiri",
+        "lag": "lambat", "ngelag": "lambat", "ngelagg": "lambat",
+        "min": "admin", "dev": "pengembang", "up": "perbarui", "update": "perbarui",
+        "mantul": "mantap betul", "rekomen": "rekomendasi", "worth": "layak",
+
+        # Komunikasi (WhatsApp)
+        "vc": "panggilan video", "tc": "tes kontak", "sw": "status", "wa": "whatsapp",
+
+        # Fintech & E-Commerce (DANA, Tokopedia, Gojek)
+        "tf": "transfer", "trf": "transfer", "cs": "layanan pelanggan",
+        "ongkir": "ongkos kirim", "co": "checkout", "verif": "verifikasi",
+        "topup": "isi saldo", "acc": "setuju", "cancel": "batal",
+
+        # Media Sosial dan Video Pendek (TikTok)
+        "tt": "tiktok", "vt": "video tiktok", "vid": "video", "vidio": "video",
+        "fyp": "rekomendasi", "komen": "komentar", "koment": "komentar",
+        "dm": "pesan", "uplod": "unggah", "upload": "unggah", "post": "unggah",
+        "ban": "blokir", "banned": "blokir", "keban": "blokir", "blok": "blokir",
+        "buffering": "lambat", "bufer": "lambat", "live": "siaran langsung",
     }
-    slang_dict.update(domain_specific_slang)
+    slang_dict.update(general_digital_slang)
 
     df_stop = pd.read_csv("stopwordbahasa.csv", header=None)
     stopwords_raw = set(df_stop[0].astype(str).str.strip().str.lower().tolist())
 
-    # Pertahankan kata negasi agar konteks sentimen tidak terbalik
+    # Pertahankan seluruh kata negasi (100% sinkron dengan Tahap 2 training)
     kata_negasi = {
-        "tidak", "bukan", "jangan", "kurang", "belum",
-        "enggak", "ga", "gak", "tdk", "g", "nggak"
+        "tidak", "bukan", "jangan", "kurang", "belum", "enggak",
+        "ga", "gak", "gk", "nggak", "ngga", "tdk", "tak", "kagak", "tanpa"
     }
-    stopwords_final = stopwords_raw - kata_negasi
+    stop_words = stopwords_raw - kata_negasi
 
     # Stopwords khusus visualisasi agar kata terlalu umum tidak mendominasi grafik
     stopwords_visual = stopwords_raw | kata_negasi | {
@@ -128,20 +144,45 @@ def setup_nlp():
         "yg", "yang", "dan", "di", "ke", "dari", "ini", "itu", "untuk"
     }
 
+    # Regex pembersihan (100% sinkron dengan Tahap 2 & 3 training)
+    url_pattern = re.compile(r"http\S+|www\.\S+")
+    mention_pattern = re.compile(r"@\w+|#\w+")
     clean_pattern = re.compile(r"[^a-zA-Z\s]")
     repeat_char_pattern = re.compile(r"(.)\1{2,}")
 
-    return stemmer, slang_dict, stopwords_final, stopwords_visual, clean_pattern, repeat_char_pattern
+    return (
+        stemmer,
+        slang_dict,
+        stop_words,
+        stopwords_visual,
+        url_pattern,
+        mention_pattern,
+        clean_pattern,
+        repeat_char_pattern,
+    )
 
 
 @st.cache_resource
 def get_stem_cache():
+    # Muat kamus pre-computed stem_dict.pkl jika tersedia di repositori
+    if os.path.exists("stem_dict.pkl"):
+        return dict(joblib.load("stem_dict.pkl"))
     return {}
 
 
 model, tfidf, known_root_words = load_models()
-stemmer, slang_dict, stopwords_final, stopwords_visual, clean_pattern, repeat_char_pattern = setup_nlp()
+(
+    stemmer,
+    slang_dict,
+    stop_words,
+    stopwords_visual,
+    url_pattern,
+    mention_pattern,
+    clean_pattern,
+    repeat_char_pattern,
+) = setup_nlp()
 stem_cache = get_stem_cache()
+HAS_PRECOMPUTED_STEM = os.path.exists("stem_dict.pkl")
 
 
 # ==========================================
@@ -166,44 +207,54 @@ def read_uploaded_csv(file_obj):
 
 
 def normalize_text_tokens(text):
-    """Membersihkan teks dan melakukan normalisasi slang per token."""
+    """
+    Membersihkan teks dan melakukan normalisasi slang per token
+    (100% sinkron dengan dual_pipeline_processing di Tahap 3).
+    """
     if pd.isna(text) or str(text).strip() == "":
-        return []
+        return [], []
+
     text = str(text).lower()
-    text = repeat_char_pattern.sub(r"\1\1", text)
+    text = url_pattern.sub(" ", text)
+    text = mention_pattern.sub(" ", text)
+    text = repeat_char_pattern.sub(r"\1", text)
     text = clean_pattern.sub(" ", text)
     text = re.sub(r"\s+", " ", text).strip()
 
-    normalized_tokens = []
+    tokens_summarization = []
+    tokens_cls_raw = []
+
     for word in text.split():
-        mapped = slang_dict.get(word, word)
-        normalized_tokens.extend(mapped.split())
-    return normalized_tokens
+        word_normal = slang_dict.get(word, word)
+        tokens_summarization.append(word_normal)
+        for sub_word in word_normal.split():
+            if len(sub_word) > 1 and sub_word not in stop_words:
+                tokens_cls_raw.append(sub_word)
+
+    return tokens_cls_raw, tokens_summarization
 
 
 def preprocess_batch_fast(raw_texts):
     """
-    Preprocessing jalur ganda berkecepatan tinggi yang konsisten dengan Opsi 1:
-    1. Vocabulary short-circuiting: kata yang sudah ada di known_root_words tidak di-stem ulang.
-    2. Adaptive frequency threshold: pada dataset besar (>=2.000 baris unik), lewati stemming kata langka (<3x).
-    3. Filter panjang kata ekstrem (3..20 karakter) untuk menghindari backtracking lambat pada Sastrawi.
+    Preprocessing jalur ganda berkecepatan tinggi:
+    - Menggunakan stem_dict.pkl (O(1) lookup) + known_root_words dari vectorizer.
+    - Jika stem_dict.pkl tersedia, 100% kata (min_freq=1) tetap di-stemming tanpa kompromi akurasi.
     """
-    normalized_docs = [normalize_text_tokens(t) for t in raw_texts]
+    parsed_docs = [normalize_text_tokens(t) for t in raw_texts]
 
     token_counts = Counter(
-        word
-        for doc in normalized_docs
-        for word in doc
-        if word not in stopwords_final
+        sub_word
+        for cls_tokens, _ in parsed_docs
+        for sub_word in cls_tokens
     )
 
-    min_freq = 3 if len(raw_texts) >= 2000 else 1
+    min_freq = 1 if (HAS_PRECOMPUTED_STEM or len(raw_texts) < 2000) else 3
 
     words_to_stem = [
         word
         for word, freq in token_counts.items()
         if freq >= min_freq
-        and 3 <= len(word) <= 20
+        and len(word) <= 25
         and word not in known_root_words
         and word not in stem_cache
     ]
@@ -214,14 +265,13 @@ def preprocess_batch_fast(raw_texts):
     teks_klasifikasi = []
     teks_summarization = []
 
-    for doc in normalized_docs:
-        tokens_cls = [
+    for cls_tokens, sum_tokens in parsed_docs:
+        stemmed_tokens = [
             word if word in known_root_words else stem_cache.get(word, word)
-            for word in doc
-            if word not in stopwords_final
+            for word in cls_tokens
         ]
-        teks_klasifikasi.append(" ".join(tokens_cls))
-        teks_summarization.append(" ".join(doc))
+        teks_klasifikasi.append(" ".join(stemmed_tokens))
+        teks_summarization.append(" ".join(sum_tokens))
 
     return teks_klasifikasi, teks_summarization
 
@@ -291,7 +341,6 @@ if uploaded_file is not None:
             df_proc = df.copy()
             raw_series = df_proc[kolom_teks].fillna("").astype(str)
 
-            # Optimasi 3: Deduplikasi teks identik sebelum preprocessing & prediksi
             unique_texts = raw_series.unique().tolist()
             u_cls, u_sum = preprocess_batch_fast(unique_texts)
 
@@ -360,7 +409,6 @@ if uploaded_file is not None:
         color_map = {"Positif": "#66b3ff", "Negatif": "#ff9999", "Netral": "#ffcc99"}
         col1, col2 = st.columns(2)
 
-        # Visualisasi 1: Proporsi Sentimen Pelanggan
         with col1:
             sentimen_count = df_valid["Prediksi_Sentimen"].value_counts()
             colors = [color_map.get(x, "#cccccc") for x in sentimen_count.index]
@@ -382,7 +430,6 @@ if uploaded_file is not None:
             st.pyplot(fig1, use_container_width=True)
             plt.close(fig1)
 
-        # Visualisasi 2: Top 10 Fokus Keluhan Utama
         df_negatif = df_valid[df_valid["Prediksi_Sentimen"] == "Negatif"].copy()
         with col2:
             if not df_negatif.empty:
@@ -419,9 +466,6 @@ if uploaded_file is not None:
             else:
                 st.info("Tidak ada keluhan signifikan terdeteksi.")
 
-        # ==========================================
-        # 5B. TIME SERIES (PER BULAN)
-        # ==========================================
         if kolom_tanggal_aktif != "-- Tidak Ada / Lewati --":
             st.divider()
             st.subheader("Tren Sentimen Ulasan per Bulan")
@@ -472,9 +516,6 @@ if uploaded_file is not None:
                     "sehingga grafik Time Series tidak dapat ditampilkan."
                 )
 
-        # ==========================================
-        # 5C. WORD CLOUD
-        # ==========================================
         st.divider()
         st.subheader("Word Cloud Kata Kunci Ulasan")
 
@@ -535,9 +576,6 @@ if uploaded_file is not None:
             else:
                 st.info("Tidak cukup kata untuk menampilkan Word Cloud Negatif.")
 
-        # ==========================================
-        # 6. SUMMARIZATION (AI INSIGHT)
-        # ==========================================
         if not df_negatif.empty:
             st.divider()
             st.subheader("Rangkuman Keluhan Utama (AI Insight)")
@@ -583,9 +621,6 @@ if uploaded_file is not None:
             else:
                 st.warning("Silakan konfigurasikan GEMINI_API_KEY di Streamlit Secrets untuk mengaktifkan fitur ini.")
 
-        # ==========================================
-        # 7. TABEL DAN EKSPOR DATA
-        # ==========================================
         st.divider()
         st.subheader("Rincian Data Terprediksi")
         kolom_tampil = [kolom_teks_aktif, "teks_klasifikasi", "teks_summarization", "Prediksi_Sentimen"]
